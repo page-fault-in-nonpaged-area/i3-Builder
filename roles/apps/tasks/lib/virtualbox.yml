@@ -1,0 +1,62 @@
+# ---------------------------------------
+- name: "Set task name"
+  ansible.builtin.set_fact:
+    task_name: "virtualbox"
+# ---------------------------------------
+
+- name: "Install {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Install {{ task_name }}"
+      become: true
+      ansible.builtin.shell: |
+        set -e
+        if [ -x "$(command -v virtualbox)" ]; then
+          echo "virtualbox is already installed"
+          exit 0
+        fi
+
+        curl https://www.virtualbox.org/download/oracle_vbox_2016.asc | gpg --dearmor > oracle_vbox_2016.gpg
+        curl https://www.virtualbox.org/download/oracle_vbox.asc | gpg --dearmor > oracle_vbox.gpg
+        sudo install -o root -g root -m 644 oracle_vbox_2016.gpg /etc/apt/trusted.gpg.d/
+        sudo install -o root -g root -m 644 oracle_vbox.gpg /etc/apt/trusted.gpg.d/
+        src=http://download.virtualbox.org/virtualbox/debian
+        echo "deb [arch=amd64] $src $(lsb_release -sc) contrib" | sudo tee /etc/apt/sources.list.d/virtualbox.list
+
+        sudo apt update
+        sudo apt install virtualbox-7.0 -y
+
+        echo virtualbox-ext-pack virtualbox-ext-pack/license select true | sudo debconf-set-selections
+        wget https://download.virtualbox.org/virtualbox/7.0.0/Oracle_VM_VirtualBox_Extension_Pack-7.0.0.vbox-extpack
+        sha="33d7284dc4a0ece381196fda3cfe2ed0e1e8e7ed7f27b9a9ebc4ee22e24bd23c"
+        sudo VBoxManage extpack install Oracle_VM_VirtualBox_Extension_Pack-7.0.0.vbox-extpack --accept-license=$sha
+
+        rm Oracle_VM_VirtualBox_Extension_Pack-7.0.0.vbox-extpack
+        rm oracle_vbox_2016.gpg
+        rm oracle_vbox.gpg
+
+      changed_when: "'triggers' in out.stdout"
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.1.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} installed" >> '{{ logs_path }}/report.apps.txt'
+        else
+          echo "[FAIL] {{ task_name }} installation failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.apps.txt'
+        fi
+      changed_when: true

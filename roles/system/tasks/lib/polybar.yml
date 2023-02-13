@@ -1,0 +1,92 @@
+# ---------------------------------------
+- name: "Set task name"
+  ansible.builtin.set_fact:
+    task_name: "polybar"
+# ---------------------------------------
+
+- name: "Install {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Install {{ task_name }}"
+      become: true
+      ansible.builtin.shell: |
+        set -e
+        if [ -x "$(command -v polybar)" ]; then
+          echo "polybar is already installed"
+          exit 0
+        fi
+        sudo apt update
+        sudo apt-get install polybar -y
+
+      changed_when: "'triggers' in out.stdout"
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.1.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} installed" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} installation failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true
+
+- name: "Configure {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Configure {{ task_name }}"
+      become: false
+      ansible.builtin.shell: |
+        set -e
+        wget https://github.com/page-fault-in-nonpaged-area/polybar-themes/archive/refs/heads/master.zip
+        unzip -o master.zip
+
+        cd polybar-themes-master
+        echo "1" | ./setup.sh
+        cd ..
+        rm -rf polybar-themes-master
+
+        mkdir -p $HOME/.config/git-profiles
+        cp {{ git_profile_path }}/* $HOME/.config/git-profiles
+
+        rm -rf master.zip
+        rm -rf polybar-themes-master
+
+      changed_when: true
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.2.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} configured" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} configuration failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true

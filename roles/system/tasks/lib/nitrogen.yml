@@ -1,0 +1,84 @@
+# ---------------------------------------
+- name: "Set task name"
+  ansible.builtin.set_fact:
+    task_name: "nitrogen"
+# ---------------------------------------
+
+- name: "Install {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Install {{ task_name }}"
+      become: true
+      ansible.builtin.shell: |
+        set -e
+        if [ -x "$(command -v nitrogen)" ]; then
+          echo "nitrogen is already installed"
+          exit 0
+        fi
+        sudo apt-get install nitrogen -y
+
+      changed_when: "'triggers' in out.stdout"
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: ../logs/{{ task_name }}.1.log
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} installed" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} installation failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true
+
+- name: "Copy configs"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Copy configs"
+      become: false
+      ansible.builtin.shell: |
+        set -e
+        mkdir -p $HOME/.config/nitrogen
+        # nitrogen cant parse env vars, so we need to replace them with the actual path
+        cp {{ role_path }}/files/nitrogen/* $HOME/.config/nitrogen/
+        # sed {HOME_DIR} with the actual path
+        sed -i "s|{HOME_DIR}|$HOME|g" $HOME/.config/nitrogen/bg-saved.cfg
+        sed -i "s|{HOME_DIR}|$HOME|g" $HOME/.config/nitrogen/nitrogen.cfg
+
+      changed_when: true
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.2.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Copy failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} configured" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} configuration failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true

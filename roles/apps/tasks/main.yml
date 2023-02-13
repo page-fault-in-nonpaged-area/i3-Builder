@@ -1,0 +1,38 @@
+# ---------------------------------------
+# Tasks
+# ---------------------------------------
+- name: "Install beekeeper"
+  ansible.builtin.include_tasks: lib/beekeeper.yml
+
+- name: "Install brave"
+  ansible.builtin.include_tasks: lib/brave.yml
+
+- name: "Install chromium"
+  ansible.builtin.include_tasks: lib/chromium.yml
+
+- name: "Install firefox"
+  ansible.builtin.include_tasks: lib/firefox.yml
+
+- name: "Install flameshot"
+  ansible.builtin.include_tasks: lib/flameshot.yml
+
+- name: "Install gcloud"
+  ansible.builtin.include_tasks: lib/gcloud.yml
+
+- name: "Install gimp"
+  ansible.builtin.include_tasks: lib/gimp.yml
+
+- name: "Install kazam"
+  ansible.builtin.include_tasks: lib/kazam.yml
+
+- name: "Install slack"
+  ansible.builtin.include_tasks: lib/slack.yml
+
+- name: "Install teams"
+  ansible.builtin.include_tasks: lib/teams.yml
+
+- name: "Install virtualbox"
+  ansible.builtin.include_tasks: lib/virtualbox.yml
+
+- name: "Install vscode"
+  ansible.builtin.include_tasks: lib/vscode.yml

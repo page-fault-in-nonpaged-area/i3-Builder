@@ -1,0 +1,20 @@
+galaxy_info:
+  author: swiftpoll
+  description: i3 desktop builder (i3wm)
+  company: swiftpoll
+  license: MIT
+
+  min_ansible_version: "2.1"
+
+  platforms:
+    - arch: all
+      name: Ubuntu
+      version: "22.04"
+
+  galaxy_tags: [
+    "i3",
+    "desktop",
+    "builder"
+  ]
+
+dependencies: []

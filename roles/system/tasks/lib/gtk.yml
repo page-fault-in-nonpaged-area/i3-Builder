@@ -1,0 +1,84 @@
+# ---------------------------------------
+- name: "Set task name"
+  ansible.builtin.set_fact:
+    task_name: "gtk"
+# ---------------------------------------
+
+- name: "Install lxappearance"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Install lxappearance"
+      become: true
+      ansible.builtin.shell: |
+        set -e
+        if [ -x "$(command -v lxappearance)" ]; then
+          echo "lxappearance is already installed"
+          exit 0
+        fi
+        sudo apt update
+        sudo apt-get install lxappearance -y
+
+      changed_when: "'triggers' in out.stdout"
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.1.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] lxappearance installed" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] lxappearance installation failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true
+
+# -------------------------------------------------
+# Copy gtk config
+# -------------------------------------------------
+- name: "Copy configs"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Copy configs"
+      become: false
+      ansible.builtin.shell: |
+        set -e
+        mkdir -p ~/.config/gtk-3.0
+        cp -r {{ role_path }}/files/gtk-3.0/* ~/.config/gtk-3.0
+
+      changed_when: true
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.2.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Copy failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} configured" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} configuration failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true

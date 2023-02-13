@@ -1,0 +1,3 @@
+copy_firefox: true
+ff_profile_path: ""
+logs_path: ""

@@ -1,0 +1,5 @@
+copy_keys: true
+keys_path: ""
+logs_path: ""
+git_profile_path: ""
+restic_enabled: false
