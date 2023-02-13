@@ -1,0 +1,107 @@
+# ---------------------------------------
+- name: "Set task name"
+  ansible.builtin.set_fact:
+    task_name: "firefox"
+# ---------------------------------------
+
+- name: "Install {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Install {{ task_name }}"
+      become: true
+      ansible.builtin.shell: |
+        set -e
+        if [ -x "$(command -v firefox)" ]; then
+          echo "firefox is already installed"
+          exit 0
+        fi
+        sudo snap install firefox
+
+        # run firefox once to create the default profile, then close it
+        firefox &
+        sleep 5
+        killall firefox
+
+      changed_when: "'triggers' in out.stdout"
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.1.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} installed" >> '{{ logs_path }}/report.apps.txt'
+        else
+          echo "[FAIL] {{ task_name }} installation failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.apps.txt'
+        fi
+      changed_when: true
+
+# -------------------------------------------------
+# Copy firefox profile
+# -------------------------------------------------
+- name: "Configure {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Configure {{ task_name }}"
+      become: false
+      ansible.builtin.shell: |
+        set -e
+
+        # start firefox once to create the default profile
+        firefox &
+        sleep 10
+        killall firefox
+
+        # steps IMPORTANT: ff folder
+        # 1. start firefox to gen default profile
+        # copy folder ff into .mozilla/firefox/ folder
+        # change the settings.ini file to point to the new profile
+        # start firefox with --allow-downgrade flag
+
+        # Copy the profile
+        cp -rf {{ ff_profile_path }}/ff $HOME/snap/firefox/common/.mozilla/firefox/
+
+        sed -i "s/Path=.*/Path=ff/g" $HOME/snap/firefox/common/.mozilla/firefox/profiles.ini
+
+        # Start firefox with --allow-downgrade flag
+        firefox --allow-downgrade &
+
+      changed_when: true
+      args:
+        warn: false
+      register: out
+
+      when: copy_firefox
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.2.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Copy failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} configured" >> '{{ logs_path }}/report.apps.txt'
+        else
+          echo "[FAIL] {{ task_name }} configuration failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.apps.txt'
+        fi
+      changed_when: true

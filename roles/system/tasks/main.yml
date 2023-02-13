@@ -1,0 +1,36 @@
+# ---------------------------------------
+# Tasks
+# ---------------------------------------
+- name: "Install compton"
+  ansible.builtin.include_tasks: lib/compton.yml
+
+- name: "Install cursors"
+  ansible.builtin.include_tasks: lib/cursor.yml
+
+- name: "Install gtk"
+  ansible.builtin.include_tasks: lib/gtk.yml
+
+- name: "Install i3"
+  ansible.builtin.include_tasks: lib/i3.yml
+
+- name: "Install keyboard"
+  ansible.builtin.include_tasks: lib/keyboard.yml
+
+- name: "Install nitrogen"
+  ansible.builtin.include_tasks: lib/nitrogen.yml
+
+- name: "Install polybar"
+  ansible.builtin.include_tasks: lib/polybar.yml
+
+- name: "Install restic"
+  ansible.builtin.include_tasks: lib/restic.yml
+
+- name: "Install terminal"
+  ansible.builtin.include_tasks: lib/terminal.yml
+
+# ---------------------------------------
+# Optional Tasks
+# ---------------------------------------
+- name: "Install keys"
+  ansible.builtin.include_tasks: lib/keys.yml
+  when: copy_keys

@@ -1,0 +1,115 @@
+# ---------------------------------------
+- name: "Set task name and options"
+  ignore_errors: true # noqa ignore-errors
+  ansible.builtin.set_fact:
+    task_name: "code"
+    extensions:
+      - batisteo.vscode-django@1.10.0
+      - donjayamanne.python-environment-manager@1.0.4
+      - donjayamanne.python-extension-pack@1.7.0
+      - foxundermoon.shell-format@7.2.2
+      - GitHub.copilot-labs@0.9.668
+      - GitHub.copilot-nightly@1.71.8496
+      - GitHub.vscode-pull-request-github@0.58.0
+      - GitLab.gitlab-workflow@3.59.2
+      - golang.go@0.37.1
+      - hashicorp.terraform@2.25.2
+      - KevinRose.vsc-python-indent@1.18.0
+      - ms-azuretools.vscode-docker@1.23.3
+      - ms-ossdata.vscode-postgresql@0.3.0
+      - ms-playwright.playwright@1.0.6
+      - ms-python.isort@2022.8.0
+      - ms-python.python@2023.2.0
+      - ms-python.vscode-pylance@2023.2.10
+      - ms-toolsai.jupyter@2023.1.2000312134
+      - ms-toolsai.jupyter-keymap@1.0.0
+      - ms-toolsai.jupyter-renderers@1.0.14
+      - ms-toolsai.vscode-jupyter-cell-tags@0.1.6
+      - ms-toolsai.vscode-jupyter-slideshow@0.1.5
+      - ms-vscode.vscode-typescript-next@5.0.202302050
+      - njpwerner.autodocstring@0.6.1
+      - redhat.ansible@1.1.34
+      - redhat.vscode-yaml@1.11.0
+      - timonwong.shellcheck@0.29.3
+      - VisualStudioExptTeam.intellicode-api-usage-examples@0.2.7
+      - VisualStudioExptTeam.vscodeintellicode@1.2.30
+      - wholroyd.jinja@0.0.8
+# ---------------------------------------
+
+- name: "Install {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Install {{ task_name }}"
+      become: true
+      ansible.builtin.shell: |
+        set -e
+        if [ -x "$(command -v code)" ]; then
+          echo "code is already installed"
+          exit 0
+        fi
+        sudo snap install code --classic
+
+      changed_when: "'triggers' in out.stdout"
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.1.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} installed" >> '{{ logs_path }}/report.apps.txt'
+        else
+          echo "[FAIL] {{ task_name }} installation failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.apps.txt'
+        fi
+      changed_when: true
+
+- name: "Configure {{ task_name }}"
+  block:
+    - name: "Configure {{ task_name }}"
+      become: false
+      ansible.builtin.shell: |
+        set -e
+        code &
+        sleep 5
+        killall code
+        for extension in {{ extensions | join(' ') }}; do
+          code --install-extension $extension --force
+        done
+
+      changed_when: true
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.2.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Copy failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} configured" >> '{{ logs_path }}/report.apps.txt'
+        else
+          echo "[FAIL] {{ task_name }} configuration failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.apps.txt'
+        fi
+      changed_when: true

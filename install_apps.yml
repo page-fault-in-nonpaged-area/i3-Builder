@@ -1,0 +1,4 @@
+- name: Run install i3 apps role
+  hosts: localhost
+  roles:
+    - roles/apps

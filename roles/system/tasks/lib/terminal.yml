@@ -1,0 +1,44 @@
+# ---------------------------------------
+- name: "Set task name"
+  ansible.builtin.set_fact:
+    task_name: "terminal"
+# ---------------------------------------
+
+# -------------------------------------------------
+# Copy xfce4-terminal configs
+# -------------------------------------------------
+- name: "Copy xfce4-terminal configs"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Copy xfce4-terminal configs"
+      become: false
+      ansible.builtin.shell: |
+        set -e
+        mkdir -p $HOME/.config/xfce4/terminal
+        cp {{ role_path }}/files/terminal/* $HOME/.config/xfce4/terminal
+
+      changed_when: true
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/terminal.1.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Copy failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} configured" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} configuration failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true

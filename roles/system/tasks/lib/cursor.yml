@@ -1,0 +1,93 @@
+# ---------------------------------------
+- name: "Set task name"
+  ansible.builtin.set_fact:
+    task_name: "cursor"
+# ---------------------------------------
+
+- name: "Install dep for {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Install deps for {{ task_name }}"
+      become: false
+      ansible.builtin.shell: |
+        set -e
+        if [ -x "$(command -v inkscape)" ]; then
+          echo "inkscape is already installed"
+          exit 0
+        fi
+        sudo apt update
+        sudo apt-get install inkscape -y
+
+      changed_when: true
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: ../logs/{{ task_name }}.1.log
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} dependencies installed" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} dependencies installation failed" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true
+
+
+- name: "Install {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Install {{ task_name }}"
+      become: true # needs to bu system wide
+      ansible.builtin.shell: |
+        mkdir -p $HOME/.config/cursors
+        cd $HOME/.config/cursors
+        wget https://github.com/KiranWells/Lyra-Cursors/archive/refs/heads/master.zip
+        rm -rf Lyra-Cursors-master
+        unzip -o master.zip
+        cd Lyra-Cursors-master
+        mkdir -p $HOME/.local/share/icons/LyraX-cursors
+        ./build.sh LyraX
+        sudo ./install.sh LyraX
+
+        # cleanup
+        cd $HOME/.config/cursors
+        rm -rf Lyra-Cursors-master
+        rm -rf master.zip
+
+      changed_when: true
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.2.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} installed" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} installation failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true

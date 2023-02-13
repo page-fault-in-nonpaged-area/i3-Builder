@@ -1,0 +1,51 @@
+# ---------------------------------------
+- name: "Set task name"
+  ansible.builtin.set_fact:
+    task_name: "brave"
+# ---------------------------------------
+
+- name: "Install {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Install {{ task_name }}"
+      become: true
+      ansible.builtin.shell: |
+        set -e
+        if [ -x "$(command -v brave-browser)" ]; then
+          echo "brave is already installed"
+          exit 0
+        fi
+        sudo apt install curl -y
+
+        gpg_path=/usr/share/keyrings/brave-browser-archive-keyring.gpg
+        rls_list=/etc/apt/sources.list.d/brave-browser-release.list
+        sudo curl -fsSLo $gpg_path https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+        echo "deb [signed-by=$gpg_path] https://brave-browser-apt-release.s3.brave.com/ stable main"|sudo tee $rls_list
+        sudo apt update
+        sudo apt install brave-browser -y
+
+      changed_when: "'triggers' in out.stdout"
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.1.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} installed" >> '{{ logs_path }}/report.apps.txt'
+        else
+          echo "[FAIL] {{ task_name }} installation failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.apps.txt'
+        fi
+      changed_when: true

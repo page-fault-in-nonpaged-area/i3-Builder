@@ -1,0 +1,88 @@
+# ---------------------------------------
+- name: "Set task name"
+  ansible.builtin.set_fact:
+    task_name: "i3"
+# ---------------------------------------
+
+- name: "Install {{ task_name }}"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Install {{ task_name }}"
+      become: true
+      ansible.builtin.shell: |
+        set -e
+        if [ -x "$(command -v i3)" ]; then
+          echo "i3 is already installed"
+          exit 0
+        fi
+
+        sha=52053550c4ecb4e97c48900c61b2df4ec50728249d054190e8a0925addb12fc6
+        /usr/lib/apt/apt-helper download-file https://debian.sur5r.net/i3/pool/main/s/sur5r-keyring/sur5r-keyring_2022.02.17_all.deb keyring.deb SHA256:$sha
+        sudo apt install ./keyring.deb
+        repo=http://debian.sur5r.net/i3/
+        echo "deb [arch=amd64] $repo $(grep '^DISTRIB_CODENAME=' /etc/lsb-release | cut -f2 -d=) universe" | sudo tee /etc/apt/sources.list.d/sur5r-i3.list
+        sudo apt update
+        sudo apt install i3 -y
+        rm keyring.deb
+
+      changed_when: "'triggers' in out.stdout"
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.1.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Installation failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} installed" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} installation failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true
+
+- name: "Copy configs"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Copy configs"
+      become: false
+      ansible.builtin.shell: |
+        set -e
+        mkdir -p $HOME/.config/i3
+        cp {{ role_path }}/files/i3/config $HOME/.config/i3/config
+
+      changed_when: true
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/{{ task_name }}.2.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Copy profile failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} configured" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} configuration failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true

@@ -1,0 +1,47 @@
+# ---------------------------------------
+- name: "Set task name"
+  ansible.builtin.set_fact:
+    task_name: "keys"
+# ---------------------------------------
+
+- name: "Copy keys"
+  ignore_errors: true # noqa ignore-errors
+  block:
+    - name: "Copy keys"
+      become: false
+      ansible.builtin.shell: |
+        set -e
+        mkdir -p $HOME/.ssh
+        cp -r {{ keys_path }}/ssh/* $HOME/.ssh
+
+        mkdir -p $HOME/.gnupg
+        cp -r {{ keys_path }}/gpg/* $HOME/.gnupg
+
+        chmod 600 $HOME/.ssh/*
+        chmod 600 $HOME/.gnupg/*
+
+      changed_when: true
+      args:
+        warn: false
+      register: out
+
+  rescue:
+    - name: "Write out register to file"
+      ansible.builtin.copy:
+        content: "{{ out }}"
+        mode: preserve
+        dest: '{{ logs_path }}/keys.1.log'
+
+    - name: "Fail"
+      ansible.builtin.fail:
+        msg: "Copy failed"
+
+  always:
+    - name: "Capture return code"
+      ansible.builtin.shell: |
+        if [ {{ out.rc }} -eq 0 ]; then
+          echo "[PASS] {{ task_name }} installed" >> '{{ logs_path }}/report.txt'
+        else
+          echo "[FAIL] {{ task_name }} installation failed. Please See {{ logs_path }}/{{ task_name }}.[n].log!" >> '{{ logs_path }}/report.txt'
+        fi
+      changed_when: true

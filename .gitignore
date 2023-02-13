@@ -1,0 +1,13 @@
+input/firefox/.mozilla
+input/firefox/ff
+input/git-profiles/profiles.yml
+
+input/keys/ssh/*
+!input/keys/ssh/1
+
+input/keys/gpg/*
+!input/keys/gpg/1
+
+output/logs/*
+!output/logs/1
+

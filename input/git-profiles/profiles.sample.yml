@@ -1,0 +1,23 @@
+# Configurable git profiles for polybar
+
+# Add or remove as desired
+Profiles:
+
+  - name: "Company Name"
+    color: "#E74C3C"
+    username: "William Yang"
+    email: "your.email@company.com"
+
+  - name: "GitHub Pagefault"
+    color: "#F1C40F"
+    username: "William Yang"
+    email: your.email@outlook.ie"
+
+  - name: "Hobby Project"
+    color: "#2ECC71"
+    username: "William Yang"
+    email: "your.email@live.co.uk"
+    
+# Do not edit below this line
+# ---------------------------
+CurrentIndex: 1
